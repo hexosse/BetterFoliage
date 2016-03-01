@@ -57,14 +57,14 @@ class AoFaceData(val face: EnumFacing) {
         EAST -> listOf(topRight, topLeft, bottomLeft, bottomRight)
     }
 
-    fun update(offset: Int3, useBounds: Boolean = false) {
+    fun update(offset: Int3, useBounds: Boolean = false, multiplier: Float = 1.0f) {
         val ctx = blockContext
         val blockState = ctx.blockState(offset)
         val quadBounds: FloatArray = FloatArray(12)
         val flags = BitSet(3).apply { set(0) }
 
         ao.updateVertexBrightness(ctx.world, blockState.block, ctx.pos + offset, face, quadBounds, flags)
-        ordered.forEachIndexed { idx, aoData -> aoData.set(ao.vertexBrightness[idx], ao.vertexColorMultiplier[idx]) }
+        ordered.forEachIndexed { idx, aoData -> aoData.set(ao.vertexBrightness[idx], ao.vertexColorMultiplier[idx] * multiplier) }
     }
 
     operator fun get(dir1: EnumFacing, dir2: EnumFacing): AoData {
@@ -106,7 +106,7 @@ interface Shader {
         red = min(shading1.red * weight1 + shading2.red * weight2, 1.0f)
         green = min(shading1.green * weight1 + shading2.green * weight2, 1.0f)
         blue = min(shading1.blue * weight1 + shading2.blue * weight2, 1.0f)
-        brightness = brSum(null, shading1.brightness brMul weight1, shading2.brightness brMul weight2)
+        brightness = brWeighted(shading1.brightness, weight1, shading2.brightness, weight2)
     }
 
     /**

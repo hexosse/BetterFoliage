@@ -13,11 +13,11 @@ class TextureMatcher() {
         fun matches(icon: TextureAtlasSprite): Boolean {
             val iconLocation = ResourceLocation(icon.iconName)
             return (domain == null || domain == iconLocation.resourceDomain) &&
-                iconLocation.resourcePath.stripStart("blocks/").contains(path)
+                iconLocation.resourcePath.stripStart("blocks/").contains(path, ignoreCase = true)
         }
     }
 
-    val mappings: MutableList<Mapping> = linkedListOf()
+    val mappings: MutableList<Mapping> = mutableListOf()
 
     fun getType(icon: TextureAtlasSprite): String? = mappings.filter { it.matches(icon) }.map { it.type }.firstOrNull()
 
