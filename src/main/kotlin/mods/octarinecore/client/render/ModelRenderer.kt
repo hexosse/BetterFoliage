@@ -1,6 +1,5 @@
 package mods.octarinecore.client.render
 
-import mods.octarinecore.client.resource.resourceManager
 import mods.octarinecore.common.*
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.WorldRenderer
@@ -8,6 +7,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats
 import net.minecraft.util.EnumFacing
 import net.minecraft.util.EnumFacing.*
+import java.lang.Math.max
 
 class ModelRenderer() : ShadingContext() {
 
@@ -41,10 +41,7 @@ class ModelRenderer() : ShadingContext() {
         aoEnabled = Minecraft.isAmbientOcclusionEnabled()
 
         // make sure we have space in the buffer for our quads plus one
-        worldRenderer.apply {
-            rawIntBuffer.position(bufferSize)
-            growBuffer((model.quads.size * 4 + 1) * vertexFormat.func_181719_f())
-        }
+        worldRenderer.ensureSpaceForQuads(model.quads.size + 1)
 
         model.quads.forEachIndexed { quadIdx, quad ->
             val drawIcon = icon(this, quadIdx, quad)
@@ -77,8 +74,15 @@ open class ShadingContext {
     var aoEnabled = Minecraft.isAmbientOcclusionEnabled()
     val aoFaces = Array(6) { AoFaceData(forgeDirs[it]) }
 
+    val EnumFacing.aoMultiplier: Float get() = when(this) {
+        UP -> 1.0f
+        DOWN -> 0.5f
+        NORTH, SOUTH -> 0.8f
+        EAST, WEST -> 0.6f
+    }
+
     fun updateShading(offset: Int3, predicate: (EnumFacing) -> Boolean = { true }) {
-        forgeDirs.forEach { if (predicate(it)) aoFaces[it.ordinal].update(offset) }
+        forgeDirs.forEach { if (predicate(it)) aoFaces[it.ordinal].update(offset, multiplier = it.aoMultiplier) }
     }
 
     fun aoShading(face: EnumFacing, corner1: EnumFacing, corner2: EnumFacing) =
@@ -152,6 +156,11 @@ class RenderVertex() {
         blue = (color and 255) / 256.0f
     }
 
+}
+
+fun WorldRenderer.ensureSpaceForQuads(num: Int) {
+    rawIntBuffer.position(bufferSize)
+    growBuffer(num * vertexFormat.nextOffset)
 }
 
 val allFaces: (EnumFacing) -> Boolean = { true }
