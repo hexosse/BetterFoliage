@@ -5,6 +5,7 @@ import mods.octarinecore.metaprog.Transformer
 import mods.octarinecore.metaprog.allAvailable
 import net.minecraftforge.fml.relauncher.FMLLaunchHandler
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Opcodes.*
 
 @IFMLLoadingPlugin.TransformerExclusions(
@@ -24,54 +25,54 @@ class BetterFoliageTransformer : Transformer() {
     }
 
     fun setupClient() {
-        // where: WorldClient.doVoidFogParticles(), right before the end of the loop
+        // where: WorldClient.showBarrierParticles(), right after invoking Block.randomDisplayTick
         // what: invoke BF code for every random display tick
         // why: allows us to catch random display ticks, without touching block code
-        transformMethod(Refs.doVoidFogParticles) {
+        transformMethod(Refs.showBarrierParticles) {
             find(invokeRef(Refs.randomDisplayTick))?.insertAfter {
                 log.info("Applying random display tick call hook")
                 varinsn(ALOAD, 0)
-                varinsn(ALOAD, 13)
-                varinsn(ALOAD, 8)
+                varinsn(ALOAD, 11)
+                varinsn(ALOAD, 7)
                 invokeStatic(Refs.onRandomDisplayTick)
             } ?: log.warn("Failed to apply random display tick call hook!")
         }
 
-        // where: Block.getAmbientOcclusionLightValue()
+        // where: BlockStateContainer$StateImplementation.getAmbientOcclusionLightValue()
         // what: invoke BF code to overrule AO transparency value
         // why: allows us to have light behave properly on non-solid log blocks without
         //      messing with isOpaqueBlock(), which could have gameplay effects
         transformMethod(Refs.getAmbientOcclusionLightValue) {
             find(FRETURN)?.insertBefore {
-                log.info("Applying Block.getAmbientOcclusionLightValue() override")
+                log.info("Applying getAmbientOcclusionLightValue() override")
                 varinsn(ALOAD, 0)
                 invokeStatic(Refs.getAmbientOcclusionLightValueOverride)
-            } ?: log.warn("Failed to apply Block.getAmbientOcclusionLightValue() override!")
+            } ?: log.warn("Failed to apply getAmbientOcclusionLightValue() override!")
         }
 
-        // where: Block.getUseNeighborBrightness()
+        // where: BlockStateContainer$StateImplementation.useNeighborBrightness()
         // what: invoke BF code to overrule _useNeighborBrightness_
         // why: allows us to have light behave properly on non-solid log blocks
-        transformMethod(Refs.getUseNeighborBrightness) {
+        transformMethod(Refs.useNeighborBrightness) {
             find(IRETURN)?.insertBefore {
-                log.info("Applying Block.getUseNeighborBrightness() override")
+                log.info("Applying useNeighborBrightness() override")
                 varinsn(ALOAD, 0)
-                invokeStatic(Refs.getUseNeighborBrightnessOverride)
-            } ?: log.warn("Failed to apply Block.getUseNeighborBrightness() override!")
+                invokeStatic(Refs.useNeighborBrightnessOverride)
+            } ?: log.warn("Failed to apply useNeighborBrightness() override!")
         }
 
-        // where: Block.shouldSideBeRendered()
+        // where: BlockStateContainer$StateImplementation.doesSideBlockRendering()
         // what: invoke BF code to overrule condition
         // why: allows us to make log blocks non-solid without
         //      messing with isOpaqueBlock(), which could have gameplay effects
-        transformMethod(Refs.shouldSideBeRendered) {
+        transformMethod(Refs.doesSideBlockRendering) {
             find(IRETURN)?.insertBefore {
-                log.info("Applying Block.shouldSideBeRendered() override")
+                log.info("Applying doesSideBlockRendering() override")
                 varinsn(ALOAD, 1)
                 varinsn(ALOAD, 2)
                 varinsn(ALOAD, 3)
                 invokeStatic(Refs.shouldRenderBlockSideOverride)
-            } ?: log.warn("Failed to apply Block.shouldSideBeRendered() override!")
+            } ?: log.warn("Failed to apply doesSideBlockRendering() override!")
         }
 
         // where: ModelLoader.setupModelRegistry(), right before the textures are loaded
@@ -82,7 +83,7 @@ class BetterFoliageTransformer : Transformer() {
                 log.info("Applying ModelLoader lifecycle callback")
                 varinsn(ALOAD, 0)
                 invokeStatic(Refs.onAfterLoadModelDefinitions)
-            }
+            } ?: log.warn("Failed to apply ModelLoader lifecycle callback!")
         }
 
         // where: RenderChunk.rebuildChunk()
@@ -93,16 +94,16 @@ class BetterFoliageTransformer : Transformer() {
         transformMethod(Refs.rebuildChunk) {
             find(invokeRef(Refs.renderBlock))?.replace {
                 log.info("Applying RenderChunk block render override")
-                varinsn(ALOAD, if (isOptifinePresent) 24 else 21)
+                varinsn(ALOAD, if (isOptifinePresent) 22 else 21)
                 invokeStatic(Refs.renderWorldBlock)
             }
             if (isOptifinePresent) {
-                find(varinsn(ISTORE, 25))?.insertAfter {
+                find(varinsn(ISTORE, 23))?.insertAfter {
                     log.info("Applying RenderChunk block layer override")
-                    varinsn(ALOAD, 20)
-                    varinsn(ALOAD, 24)
+                    varinsn(ALOAD, 19)
+                    varinsn(ALOAD, 22)
                     invokeStatic(Refs.canRenderBlockInLayer)
-                    varinsn(ISTORE, 25)
+                    varinsn(ISTORE, 23)
                 }
             } else {
                 find(invokeRef(Refs.canRenderInLayer))?.replace {

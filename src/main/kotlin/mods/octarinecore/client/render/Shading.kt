@@ -1,6 +1,9 @@
 package mods.octarinecore.client.render
 
+import mods.betterfoliage.loader.Refs
 import mods.octarinecore.common.*
+import mods.octarinecore.metaprog.allAvailable
+import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.BlockModelRenderer
 import net.minecraft.util.EnumFacing
 import net.minecraft.util.EnumFacing.*
@@ -40,7 +43,11 @@ class AoData() {
 }
 
 class AoFaceData(val face: EnumFacing) {
-    val ao = BlockModelRenderer().AmbientOcclusionFace()
+    val ao = Refs.AmbientOcclusionFace.element!!.let {
+        if (allAvailable(Refs.OptifineClassTransformer)) it.getDeclaredConstructor().newInstance()
+        else it.getDeclaredConstructor(Refs.BlockModelRenderer.element!!)
+            .newInstance(BlockModelRenderer(Minecraft.getMinecraft().blockColors))
+    } as BlockModelRenderer.AmbientOcclusionFace
     val top = faceCorners[face.ordinal].topLeft.first
     val left = faceCorners[face.ordinal].topLeft.second
 
@@ -63,7 +70,7 @@ class AoFaceData(val face: EnumFacing) {
         val quadBounds: FloatArray = FloatArray(12)
         val flags = BitSet(3).apply { set(0) }
 
-        ao.updateVertexBrightness(ctx.world, blockState.block, ctx.pos + offset, face, quadBounds, flags)
+        ao.updateVertexBrightness(ctx.world, blockState, ctx.pos + offset, face, quadBounds, flags)
         ordered.forEachIndexed { idx, aoData -> aoData.set(ao.vertexBrightness[idx], ao.vertexColorMultiplier[idx] * multiplier) }
     }
 
